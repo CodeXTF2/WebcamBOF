@@ -1,6 +1,7 @@
 # WebcamBOF
 
-Webcam capture capability for Cobalt Strike, implemented as a Beacon Object File (BOF)
+Webcam capture capability for Cobalt Strike, implemented as a Beacon Object File (BOF)  
+Supports downloading of webcam images in memory over Beacon as a file or a screenshot
 
 ## Self Compilation
 1. git clone the repo
