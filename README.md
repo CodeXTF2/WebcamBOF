@@ -1,4 +1,4 @@
-# WebcamBOF
+# WebcamBOF 📸
 
 Webcam capture capability for Cobalt Strike, implemented as a Beacon Object File (BOF)
 
