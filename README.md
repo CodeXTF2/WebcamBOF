@@ -1,7 +1,6 @@
 # WebcamBOF
 
-Webcam capture capability for Cobalt Strike, implemented as a Beacon Object File (BOF)  
-Supports downloading of webcam images in memory over Beacon as a file or a screenshot
+Webcam capture capability for Cobalt Strike, implemented as a Beacon Object File (BOF)
 
 ## Self Compilation
 1. git clone the repo
@@ -36,9 +35,7 @@ beacon> webcam_bof sad.jpeg 2
 
 
 ## Notes
-I'm gonna be honest, the code quality of this is pretty low. There is some hacky shit going on to prevent generation of COMDAT sections during compilation (the mfapi.h headers produced over 170 of them) and I did some absolutely illegal stuff with the function pointers in one of the functions becuase for some reason the addresses would get truncated ONLY when run in Beacon. It would work perfectly fine in COFFLoader. No idea why.
 
-But it works.
 
 ## Why did I make this?
 Cobalt Strike did not originally have a built in webcam capability, nor did open source alternatives exist to my knowledge. And it was a fun (not) idea.
