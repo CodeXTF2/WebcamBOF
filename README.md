@@ -49,6 +49,7 @@ Cobalt Strike did not originally have a built in webcam capability, nor did open
 ## Credits
 - Webcam code from https://github.com/OV2/WebcamImage
 - Save BMP to file from https://stackoverflow.com/a/60667564
+- @BinaryFaultline for screenshot callback function (Reused from ScreenshotBOF)
 - in memory download from https://github.com/anthemtotheego/CredBandit
 - bitmap to jpeg from https://github.com/WKL-Sec/HiddenDesktop
 
